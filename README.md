@@ -1,8 +1,35 @@
-# AI Gateway
+<div align="center">
 
-One endpoint on this machine that answers to **local models** and **Claude in
-the cloud**, so your apps ask for a *tier* (`routine`, `balanced`, `frontier`)
-and never name a vendor. Move work between local and cloud by editing one file.
+<img src="assets/social-preview.png" alt="ai-gateway" width="640">
+
+# ai-gateway
+
+**One endpoint for local and frontier models. It decides which one you need.**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-6a74ef.svg)](LICENSE)
+[![Built on LiteLLM](https://img.shields.io/badge/built%20on-LiteLLM-5b8def.svg)](https://github.com/BerriAI/litellm)
+[![Local models](https://img.shields.io/badge/local-Ollama-7b5bef.svg)](https://ollama.com)
+[![Routing accuracy](https://img.shields.io/badge/routing%20accuracy-93%25-brightgreen.svg)](#is-the-router-any-good)
+[![Platform: Linux](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#)
+
+</div>
+
+---
+
+A single OpenAI- *and* Anthropic-compatible endpoint on your own machine, in
+front of **local models** and **Claude in the cloud**. Your apps ask for a
+*tier* — or just `auto` — and never name a vendor. Move work between local and
+cloud by editing one file.
+
+**Why this exists:** running local models is easy; knowing *when* they are good
+enough is not. This wires the two together and then **measures whether the
+routing is actually right** — a number most hybrid setups never produce.
+
+```
+"what is the capital of Finland"   → local 3B      $0
+"reply with exactly one word: ..." → haiku         $0.000049
+"analyse these trade-offs ..."     → sonnet        $0.004
+```
 
 ## Daily use — one command
 
@@ -518,3 +545,14 @@ Credentials come from two `EnvironmentFile` entries: `.env` for non-secret
 config, and `~/.config/ai-gateway/secrets.env` (chmod 600, outside the repo)
 for `ANTHROPIC_API_KEY`. That file is written in plain `KEY=value` form because
 systemd cannot parse `export`.
+
+## Credits
+
+Built on [LiteLLM](https://github.com/BerriAI/litellm) (gateway, virtual keys,
+complexity router), [Ollama](https://ollama.com) (local inference),
+[Open WebUI](https://github.com/open-webui/open-webui) (chat), and
+[sandcastle](https://github.com/mattpocock/sandcastle) (sandboxed agents).
+
+## License
+
+MIT — see [LICENSE](LICENSE).

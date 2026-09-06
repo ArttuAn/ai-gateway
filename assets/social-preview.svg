@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640">
+  <rect x="0" y="0" width="1280" height="640" fill="#111726"/>
+  <rect x="0" y="0" width="1280" height="6" fill="#5b8def"/>
+
+  <line x1="490" y1="182" x2="596" y2="182" stroke="#5b8def" stroke-width="5"/>
+  <line x1="684" y1="182" x2="790" y2="182" stroke="#7b5bef" stroke-width="5" stroke-dasharray="10,8"/>
+  <circle cx="640" cy="182" r="30" fill="#6a74ef"/>
+  <circle cx="468" cy="182" r="16" fill="#5b8def"/>
+  <circle cx="812" cy="182" r="16" fill="#7b5bef"/>
+  <text x="468" y="230" font-family="DejaVu Sans" font-size="18" fill="#8290a8" text-anchor="middle">local</text>
+  <text x="812" y="230" font-family="DejaVu Sans" font-size="18" fill="#8290a8" text-anchor="middle">cloud</text>
+
+  <text x="640" y="330" font-family="DejaVu Sans" font-size="68" font-weight="bold" fill="#f4f7fb" text-anchor="middle">ai-gateway</text>
+  <text x="640" y="382" font-family="DejaVu Sans" font-size="28" fill="#a2aec4" text-anchor="middle">One endpoint for local and frontier models.</text>
+  <text x="640" y="422" font-family="DejaVu Sans" font-size="28" fill="#a2aec4" text-anchor="middle">It decides which one you need.</text>
+
+  <text x="368" y="512" font-family="DejaVu Sans" font-size="21" fill="#6f7d95" text-anchor="middle">measured routing</text>
+  <text x="640" y="512" font-family="DejaVu Sans" font-size="21" fill="#6f7d95" text-anchor="middle">per-key budgets</text>
+  <text x="912" y="512" font-family="DejaVu Sans" font-size="21" fill="#6f7d95" text-anchor="middle">sandboxed agents</text>
+  <rect x="300" y="548" width="680" height="3" fill="#3a4560"/>
+</svg>
