@@ -42,7 +42,7 @@ $(tail -n 12 "$LOG" | sed 's/&/\&amp;/g; s/</\&lt;/g')" 2>/dev/null || true
 # ── stop mode (right-click → Stop everything) ────────────────────────────────
 if [ "${1:-}" = "--stop" ]; then
   ./scripts/webui.sh down >>"$LOG" 2>&1 || true
-  ./scripts/stop.sh       >>"$LOG" 2>&1 || true
+  ./scripts/gateway-ctl.sh stop >>"$LOG" 2>&1 || true
   ./scripts/db.sh down    >>"$LOG" 2>&1 || true
   notify-send -a "AI Gateway" -i "$ICON" "AI Gateway" "Stopped. Local models stay loaded in Ollama." 2>/dev/null || true
   exit 0
@@ -58,7 +58,7 @@ status "Starting database…"
 ./scripts/db.sh up >>"$LOG" 2>&1 || die "Could not start Postgres. Is Docker running?"
 
 status "Starting gateway…"
-./scripts/start.sh >>"$LOG" 2>&1 || die "The gateway did not come up. See logs/gateway.log"
+./scripts/gateway-ctl.sh start >>"$LOG" 2>&1 || die "The gateway did not come up. See logs/gateway.log"
 
 status "Starting chat UI…"
 ./scripts/webui.sh up >>"$LOG" 2>&1 || die "Open WebUI did not come up. Try: docker logs open-webui"

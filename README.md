@@ -353,6 +353,8 @@ scripts/backup.sh       Postgres backup + retention
 evals/tasks.jsonl       golden task set
 requirements.in/.txt    hash-pinned dependency lockfile
 scripts/launch.sh       one-click: start everything + open interfaces
+scripts/gateway-ctl.sh  start|stop|restart|status (systemd-aware)
+scripts/install-service.sh  install the systemd user unit
 scripts/spend-window.sh spend report in a terminal window
 assets/ai-gateway.svg   launcher icon
 sandbox/run.mjs         sandboxed agent runner (local | subscription)
@@ -374,13 +376,27 @@ clients/                OpenAI SDK, Anthropic SDK, Node examples
 | Open WebUI shows no models | Its key is `chat-ui`; check `docker logs open-webui` and that the gateway is up |
 | Chat UI reachable from other machines | It shouldn't be — `HOST=127.0.0.1` keeps it on loopback despite `--network host`. Verify with `ss -ltn \| grep 3000` |
 
-## Running it across reboots
+## Running it as a service
 
-`make up` daemonises the gateway, so it survives logging out but not a reboot.
-If you want it always-on, install a systemd **user** unit that runs
-`.venv/bin/litellm --config config/config.yaml`. One wrinkle worth knowing:
-systemd does not inherit your shell environment, so `ANTHROPIC_API_KEY` will
-not be visible to it. Either run `systemctl --user import-environment
-ANTHROPIC_API_KEY` before starting, or put the key in a chmod-600
-`EnvironmentFile`. This setup deliberately does not copy your provider key into
-a file on disk — that is the one secret worth keeping in exactly one place.
+```bash
+make service      # install + enable the systemd user unit
+make status       # is it healthy?
+```
+
+The gateway runs as a **systemd user service**: supervised, `Restart=on-failure`,
+and started at boot (lingering enabled). Verified by `kill -9` on the main PID —
+it came back with a new PID and `NRestarts=1`.
+
+`ExecStartPre` waits for Postgres before starting. Postgres is a Docker
+container with its own restart policy, and systemd has no ordering relationship
+to it, so without that wait the gateway would crash-loop on boot.
+
+`make up` / `make down` / the desktop icon all go through
+`scripts/gateway-ctl.sh`, which uses the systemd unit when it is installed and
+the nohup launcher otherwise — so the two paths never run at the same time and
+fight over port 4000.
+
+Credentials come from two `EnvironmentFile` entries: `.env` for non-secret
+config, and `~/.config/ai-gateway/secrets.env` (chmod 600, outside the repo)
+for `ANTHROPIC_API_KEY`. That file is written in plain `KEY=value` form because
+systemd cannot parse `export`.

@@ -1,12 +1,12 @@
-.PHONY: setup up down restart keys spend health health-local logs ui test clean webui webui-down clients sandbox sandbox-build eval metrics backup
+.PHONY: setup up down restart keys spend health health-local logs ui test clean webui webui-down clients sandbox sandbox-build eval metrics backup service status
 SHELL := /bin/bash
 
 setup:        ## one-time bootstrap (venv, prisma, postgres, schema, models)
 	@./scripts/setup.sh
-up:           ## start postgres + gateway
-	@./scripts/db.sh up && ./scripts/start.sh
+up:           ## start postgres + gateway (systemd unit if installed)
+	@./scripts/db.sh up && ./scripts/gateway-ctl.sh start
 down:         ## stop gateway (postgres keeps running)
-	@./scripts/stop.sh
+	@./scripts/gateway-ctl.sh stop
 restart: down up
 keys:         ## provision virtual keys (idempotent)
 	@./scripts/provision-keys.sh
@@ -26,6 +26,10 @@ sandbox:      ## run a sandboxed agent on LOCAL models: make sandbox P="do X"
 	@node sandbox/run.mjs "$(P)"
 sandbox-build: ## (re)build the sandbox container image
 	@npx @ai-hero/sandcastle docker build-image
+service:      ## install+enable the systemd user service (survives reboot)
+	@./scripts/install-service.sh
+status:       ## gateway service status
+	@./scripts/gateway-ctl.sh status
 eval:         ## measure every tier against evals/tasks.jsonl
 	@.venv/bin/python scripts/eval-tiers.py $(ARGS)
 metrics:      ## Prometheus snapshot (spend, latency, failures)
