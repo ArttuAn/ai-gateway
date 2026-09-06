@@ -36,6 +36,7 @@ routing is actually right** — a number most hybrid setups never produce.
 Everything is `gw`. You don't need the rest of this file to use it.
 
 ```bash
+gw dash                     # tmux control room — the nicest way to run it
 gw                          # is everything up? what have I spent?
 gw ask "how do I ..."       # routed automatically — local or cloud, per request
 gw ask -l "summarise this"  # force local (free, private)   -c forces cloud
@@ -59,6 +60,42 @@ things; `gw help` is the short list worth remembering.
 
 For software, the interface is a single endpoint — `http://127.0.0.1:4000` —
 speaking OpenAI *and* Anthropic formats with one key. See **Using it** below.
+
+## `gw dash` — the control room
+
+```
+┌──────────────────────────┬─────────────────────┐
+│                          │ status (every 10s)  │
+│  shell — type `gw ask`   ├─────────────────────┤
+│                          │ live routing feed   │
+│                          ├─────────────────────┤
+│                          │ gateway log         │
+└──────────────────────────┴─────────────────────┘
+```
+
+`gw dash` starts Postgres, Redis and the gateway, then opens a tmux session
+with everything visible at once. Run it again later and it re-attaches rather
+than starting a second one. `gw dash-kill` closes it; `Ctrl-b d` detaches and
+leaves it running.
+
+The **routing feed** is the pane worth watching — every request as the router
+placed it:
+
+```
+ TIME     MODEL                  TIER       DECIDED    COST
+ 14:49:20 qwen2.5:3b-instruct    SIMPLE     heuristic     free
+ 14:49:20 claude-haiku-4-5       MEDIUM     literal_k $0.000030
+ 14:49:23 claude-sonnet-5        COMPLEX    llm_class $0.000096
+```
+
+Rows appear in batches — spend flushes every 60s (`proxy_batch_write_at`),
+which is the production setting, not lag in the feed. `direct` means a tier was
+called by name rather than through `auto` (the router's own classifier call
+shows up this way too).
+
+Not cmux — that is macOS-only (Linux is waitlist). This is plain tmux, and it
+uses pane **IDs** rather than indices so it works regardless of your
+`pane-base-index`.
 
 ## Automatic routing (`auto`)
 
