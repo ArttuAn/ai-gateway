@@ -1,0 +1,122 @@
+{
+  "generated": "2026-09-06T17:20:34+0300",
+  "accuracy": 0.929,
+  "under_routed": [],
+  "over_routed": [
+    "summarize-short"
+  ],
+  "rows": [
+    {
+      "id": "greeting",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "trivial chat, no reason to pay"
+    },
+    {
+      "id": "capital",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "simple factual recall"
+    },
+    {
+      "id": "define",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "basic definition"
+    },
+    {
+      "id": "units",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "trivial arithmetic"
+    },
+    {
+      "id": "summarize-short",
+      "expect": "local",
+      "got": "cloud",
+      "backend": "anthropic/claude-haiku-4-5",
+      "ok": false,
+      "why": "eval showed local passes summarisation"
+    },
+    {
+      "id": "sentiment-loose",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "eval showed local passes sentiment"
+    },
+    {
+      "id": "strict-oneword",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-haiku-4-5",
+      "ok": true,
+      "why": "local measurably fails strict output contracts"
+    },
+    {
+      "id": "strict-json",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-haiku-4-5",
+      "ok": true,
+      "why": "strict format contract"
+    },
+    {
+      "id": "commit-msg",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-haiku-4-5",
+      "ok": true,
+      "why": "eval showed local fails commit-msg format"
+    },
+    {
+      "id": "arch-tradeoff",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-sonnet-5",
+      "ok": true,
+      "why": "genuine multi-constraint reasoning"
+    },
+    {
+      "id": "debug-race",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-sonnet-5",
+      "ok": true,
+      "why": "deep technical diagnosis"
+    },
+    {
+      "id": "code-refactor",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-haiku-4-5",
+      "ok": true,
+      "why": "code + reasoning + explanation"
+    },
+    {
+      "id": "security-review",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-sonnet-5",
+      "ok": true,
+      "why": "security reasoning, high cost of error"
+    },
+    {
+      "id": "long-context",
+      "expect": "cloud",
+      "got": "cloud",
+      "backend": "anthropic/claude-sonnet-5",
+      "ok": true,
+      "why": "multi-party reasoning and judgement"
+    }
+  ]
+}

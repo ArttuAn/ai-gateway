@@ -30,6 +30,7 @@ Environment=LITELLM_LOG=ERROR
 # no ordering relationship to it — so wait for the database rather than
 # crash-looping on boot.
 ExecStartPre=/bin/bash -c 'for i in \$(seq 1 60); do docker exec \$PG_CONTAINER pg_isready -U litellm -d litellm >/dev/null 2>&1 && exit 0; docker start \$PG_CONTAINER >/dev/null 2>&1 || true; sleep 2; done; echo "postgres never became ready" >&2; exit 1'
+ExecStartPre=/bin/bash -c 'docker start \$REDIS_CONTAINER >/dev/null 2>&1 || true; for i in \$(seq 1 30); do docker exec \$REDIS_CONTAINER redis-cli -a "\$REDIS_PASSWORD" --no-auth-warning ping 2>/dev/null | grep -q PONG && exit 0; sleep 1; done; echo "redis never became ready" >&2; exit 1'
 ExecStart=$DIR/.venv/bin/litellm --config $DIR/config/config.yaml --host \${GATEWAY_HOST} --port \${GATEWAY_PORT}
 
 Restart=on-failure

@@ -56,6 +56,7 @@ curl -sf -m 5 "$OLLAMA_API_BASE/api/tags" >/dev/null 2>&1 \
 
 status "Starting database…"
 ./scripts/db.sh up >>"$LOG" 2>&1 || die "Could not start Postgres. Is Docker running?"
+./scripts/redis.sh up >>"$LOG" 2>&1 || die "Could not start Redis."
 
 status "Starting gateway…"
 ./scripts/gateway-ctl.sh start >>"$LOG" 2>&1 || die "The gateway did not come up. See logs/gateway.log"

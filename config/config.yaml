@@ -83,6 +83,13 @@ model_list:
           COMPLEX: balanced      # sonnet
           REASONING: frontier    # opus
 
+        # tier_boundaries are left at LiteLLM's defaults (0.15/0.35/0.60)
+        # deliberately. Raising simple_medium to 0.20 was measured against
+        # evals/routing.jsonl and made routing WORSE — 93% → 79% — because a
+        # higher boundary pulls MORE prompts into SIMPLE, sending debug-race
+        # and long-context to the 3B model. Re-measure with
+        # `gw eval-routing` before touching these.
+
         # Deterministic overrides encoding what `gw eval` actually measured:
         # the local 3B handles semantic work (sentiment, extraction,
         # summarising, SQL, regex) but fails strict output contracts —
@@ -270,6 +277,19 @@ litellm_settings:
   turn_off_message_logging: true
   redact_messages_in_exceptions: true
 
+  # ── Shared state across workers ────────────────────────────────────────
+  # Rate limits and spend counters live in Redis rather than per-process
+  # memory. With 2+ workers, in-memory counters mean an rpm_limit of N is
+  # really enforced at N x workers — the limit silently doesn't hold.
+  cache: true
+  cache_params:
+    type: redis
+    url: os.environ/REDIS_URL
+    # Only cache what we mean to: response caching stays OFF (agentic traffic
+    # rarely repeats prompts, and stale answers are worse than a cache miss).
+    # Redis is here for coordination, not for reusing completions.
+    supported_call_types: []
+
   # ── Metrics ────────────────────────────────────────────────────────────
   # Exposes Prometheus metrics at GET /metrics (spend, latency, failures,
   # per-key and per-model counters). Scrape it, or use scripts/metrics.sh.
@@ -301,6 +321,10 @@ general_settings:
 
   # Cap connections per worker so the proxy can never exhaust Postgres.
   database_connection_pool_limit: 10
+
+  # Route spend writes through Redis so concurrent workers don't contend on
+  # the same Postgres rows.
+  use_redis_transaction_buffer: true
 
   # Keep LLM exception bodies out of the spend table — under a provider
   # outage they bloat it fast, and the useful copy is already in the log.

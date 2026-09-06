@@ -1,0 +1,14 @@
+{"id":"greeting","expect":"local","prompt":"hi there","why":"trivial chat, no reason to pay"}
+{"id":"capital","expect":"local","prompt":"what is the capital of Finland","why":"simple factual recall"}
+{"id":"define","expect":"local","prompt":"what is a webhook","why":"basic definition"}
+{"id":"units","expect":"local","prompt":"convert 30 celsius to fahrenheit","why":"trivial arithmetic"}
+{"id":"summarize-short","expect":"local","prompt":"Summarise this in two sentences: our Q3 churn rose from 3.1% to 4.4%, driven by self-serve monthly customers; annual cohorts were flat. Exit surveys cite missing SSO.","why":"eval showed local passes summarisation"}
+{"id":"sentiment-loose","expect":"local","prompt":"Is this customer happy or unhappy? 'The invoice was late again and nobody replied to my emails.'","why":"eval showed local passes sentiment"}
+{"id":"strict-oneword","expect":"cloud","prompt":"Classify the sentiment. Reply with exactly one word: 'shipping was late but support fixed it fast'","why":"local measurably fails strict output contracts"}
+{"id":"strict-json","expect":"cloud","prompt":"Extract amount and currency. Reply with JSON only, no prose: Invoice total is 1,240.50 EUR.","why":"strict format contract"}
+{"id":"commit-msg","expect":"cloud","prompt":"Write a conventional commit message for: added retry with exponential backoff to the payment webhook handler.","why":"eval showed local fails commit-msg format"}
+{"id":"arch-tradeoff","expect":"cloud","prompt":"Think through step by step and analyse the trade-offs: we have 40TB of event data, sub-second p99 latency requirements, a team of two and a $3k/month budget. Design the storage and query architecture and identify the failure modes.","why":"genuine multi-constraint reasoning"}
+{"id":"debug-race","expect":"cloud","prompt":"Our Postgres connection pool intermittently deadlocks under load only when the autoscaler adds replicas. Walk through the likely causes step by step and how you would prove each one.","why":"deep technical diagnosis"}
+{"id":"code-refactor","expect":"cloud","prompt":"Refactor this Python class to use dependency injection, explain each change and the testing implications, and identify any behaviour that could regress.","why":"code + reasoning + explanation"}
+{"id":"security-review","expect":"cloud","prompt":"Review this authentication flow for vulnerabilities: the client sends a bearer token, the server validates it against Redis, and on a cache miss it falls back to trusting a signed cookie. Analyse the attack surface.","why":"security reasoning, high cost of error"}
+{"id":"long-context","expect":"cloud","prompt":"Here are three conflicting requirements from different stakeholders. Engineering wants a rewrite, sales promised the current API stays stable for two years, and finance capped headcount. Reconcile them into a plan with explicit trade-offs and a recommendation.","why":"multi-party reasoning and judgement"}

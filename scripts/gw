@@ -27,7 +27,8 @@ $(bold "gw") — AI gateway ($(dim "$GW"))
   $(bold "gw sandbox") "task"      run an agent in a throwaway container
   $(bold "gw models")              which tier to use, with measured evidence
   $(bold "gw spend")               where the money went
-  $(bold "gw eval")                re-measure the tiers
+  $(bold "gw eval")                re-measure tier quality
+  $(bold "gw eval-routing")        re-measure routing accuracy
   $(bold "gw doctor")              full diagnostic
   $(bold "gw up|down|restart")     lifecycle
   $(bold "gw logs|backup|keys|ui") the rest
@@ -106,6 +107,12 @@ models() {
     [ -n "$failed" ] && echo "  local still fails: $(red "$failed")"
     echo "  $(dim "rule of thumb: local for bulk + private work, cloud when the output format must be exact")"
     echo "  $(dim "or just use 'auto' (the default for gw ask) and let it decide per request")"
+    local rr="evals/routing-results.json"
+    if [ -f "$rr" ]; then
+      local acc under
+      acc=$(jq -r '(.accuracy*100)|floor' "$rr"); under=$(jq -r '.under_routed|length' "$rr")
+      printf '  auto routing: %s%% correct, %s under-routed %s\n' "$acc" "$under" "$(dim "(gw eval-routing)")"
+    fi
   else
     echo "$(dim "no measurements yet — run: gw eval")"
   fi
@@ -143,9 +150,11 @@ case "${1:-status}" in
   spend)      ./scripts/spend.sh ;;
   keys)       ./scripts/provision-keys.sh ;;
   eval)       shift; .venv/bin/python scripts/eval-tiers.py "$@" ;;
+  eval-routing) shift; .venv/bin/python scripts/eval-routing.py "$@" ;;
+  watch)      ./scripts/watch.sh ;;
   sandbox)    shift; node sandbox/run.mjs "$@" ;;
   doctor)     doctor ;;
-  up)         ./scripts/db.sh up && ./scripts/gateway-ctl.sh start ;;
+  up)         ./scripts/db.sh up && ./scripts/redis.sh up && ./scripts/gateway-ctl.sh start ;;
   down)       ./scripts/gateway-ctl.sh stop ;;
   restart)    ./scripts/gateway-ctl.sh restart ;;
   logs)       tail -f logs/gateway.log ;;

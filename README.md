@@ -14,15 +14,17 @@ gw ask "how do I ..."       # routed automatically — local or cloud, per reque
 gw ask -l "summarise this"  # force local (free, private)   -c forces cloud
 gw models                   # which tier to use, with measured evidence
 gw spend                    # where the money went
-gw doctor                   # 11-point diagnostic incl. security checks
+gw doctor                   # diagnostic, incl. security regression checks
+gw watch                    # budget + health check (also runs every 15 min)
 ```
 
 Then the occasional ones:
 
 ```bash
 gw chat        # graphical chat UI          gw sandbox "task"  # agent in a container
-gw code        # VS Code + Cline            gw eval            # re-measure the tiers
-gw up / down   # lifecycle                  gw backup          # dump keys + ledger
+gw code        # VS Code + Cline            gw eval            # tier quality
+gw up / down   # lifecycle                  gw eval-routing    # routing accuracy
+gw backup      # dump keys + ledger
 ```
 
 `gw` works from any directory. `make` targets still exist and do the same
@@ -69,6 +71,29 @@ from "LiteLLM_SpendLogs" order by "startTime" desc;
 
 Observed causes: `heuristic_first_short_circuit` (free, no classifier call),
 `llm_classifier` (local model decided), `literal_keyword_match` (override).
+
+### Is the router any good?
+
+```bash
+gw eval-routing     # 14 labelled prompts: does auto pick the right tier?
+```
+
+Current: **13/14 (93%), 0 under-routed.** That second number is the one that
+matters. The two error directions are not equal:
+
+- **Under-routing** (cloud-grade work sent to the 3B model) produces a *wrong
+  answer*. Expensive.
+- **Over-routing** (trivial work sent to cloud) wastes a fraction of a cent.
+  Harmless.
+
+The single miss is over-routing a summarisation to haiku. Left alone on
+purpose.
+
+**Tuning the boundaries was measured and rejected.** Raising `simple_medium`
+from 0.15 to 0.20 dropped accuracy to 79% and introduced 2 under-routings —
+a higher boundary pulls *more* prompts into SIMPLE, so `debug-race` and
+`long-context` went to the 3B model. The defaults are better. Re-run this eval
+before changing them.
 
 ### Why there are keyword overrides
 
@@ -314,6 +339,27 @@ Routing is configured in `config/config.yaml`:
 - **Retries and cooldowns** — 2 retries, then a failing deployment sits out
   for 60s.
 
+## Alerting
+
+`gw watch` checks budgets and liveness; a systemd timer runs it every 15
+minutes. It notifies only when something needs you — desktop notification plus
+`logs/alerts.log`, and Slack too if `SLACK_WEBHOOK_URL` is set.
+
+Watches: 24h spend over `ALERT_DAILY_USD` (default $5), any key past 80% of its
+budget, gateway/Postgres/Redis/Ollama liveness, and the hourly failure rate.
+Alerts dedupe for 6 hours so a standing problem nags once rather than every
+cycle.
+
+### What budgets actually enforce
+
+Measured, because "budgeted" is worth checking rather than assuming: a key
+over its budget is **blocked on paid models** (verified: request 2 of 3
+returned "Budget has been exceeded") but **free local models still work**. That
+is sensible — a zero-cost request has nothing to cap — but it means the $0.01
+budget on `sandbox-local` is not what protects you there. The **model
+allowlist** is. The budget starts mattering the moment a key can reach a paid
+model.
+
 ## Production hardening
 
 Applied from LiteLLM's own production checklist and current gateway practice:
@@ -329,7 +375,8 @@ Applied from LiteLLM's own production checklist and current gateway practice:
 | Errors out of the ledger | `disable_error_logs: True` | A provider outage would otherwise bloat the spend table |
 | Bounded request timeout | `request_timeout: 600` | LiteLLM's default is 6000s, which holds connections through a dead upstream |
 | Metrics | `callbacks: ["prometheus"]` | `/metrics` with per-key and per-model spend, latency and failure counters |
-| Backups | `make backup` | Virtual-key secrets are shown once; losing Postgres invalidates every issued key |
+| Shared rate-limit state | Redis | With 2+ workers, in-memory counters mean `rpm_limit: N` is really enforced at N×workers. Verified: counters now live in Redis |
+| Backups | `gw backup` | Virtual-key secrets are shown once; losing Postgres invalidates every issued key |
 
 `make metrics` prints a snapshot; point a real Prometheus at
 `http://127.0.0.1:4000/metrics` for history. `make backup` keeps the 14 most
