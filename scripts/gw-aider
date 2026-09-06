@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# aider through the gateway:  scripts/gw-aider [--model openai/frontier] ...
+set -euo pipefail
+d="$(cd "$(dirname "$0")/.." && pwd)"
+set -a; source "$d/.env"; source "$d/keys.env"; set +a
+export OPENAI_API_BASE="http://$GATEWAY_HOST:$GATEWAY_PORT/v1"
+export OPENAI_API_KEY="$DEV_WORKSTATION_KEY"
+exec aider --model "${AIDER_MODEL:-openai/balanced}" "$@"

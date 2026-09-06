@@ -1,0 +1,201 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  AI Gateway — one OpenAI-compatible interface over local + frontier models
+#
+#  Naming convention: clients ask for a TIER ("routine", "frontier"), not a
+#  vendor. That is the whole point of the gateway — you re-point a tier here
+#  and every app, script and CI job follows without a code change.
+#
+#  Tier          Backend                        Runs on      Cost
+#  ────────────  ─────────────────────────────  ───────────  ──────────────
+#  routine       qwen2.5:3b-instruct (Ollama)   this laptop  $0
+#  routine-code  qwen2.5-coder:14b   (Ollama)   this laptop  $0
+#  bulk-cloud    claude-haiku-4-5               Anthropic    $1 / $5  per Mtok
+#  balanced      claude-sonnet-5                Anthropic    $2 / $10 per Mtok
+#  frontier      claude-opus-5                  Anthropic    $5 / $25 per Mtok
+#  embed         nomic-embed-text    (Ollama)   this laptop  $0
+# ═══════════════════════════════════════════════════════════════════════════
+
+model_list:
+
+  # ─────────────────────────── LOCAL TIER (free) ───────────────────────────
+  # Classification, extraction, summarisation, tagging, commit messages,
+  # first-draft boilerplate. Anything you'd feel silly paying for.
+  - model_name: routine
+    litellm_params:
+      model: ollama_chat/qwen2.5:3b-instruct
+      api_base: os.environ/OLLAMA_API_BASE
+      # CPU-only box: give it room, but not so much that a wedged local
+      # model blocks a user for minutes — after this we fail over to cloud.
+      timeout: 90
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+      supports_function_calling: true
+
+  # Local code assistant. 9GB model on 8 CPU cores — correct but slow
+  # (expect tens of seconds). Good for background/batch code chores.
+  - model_name: routine-code
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:14b
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 600
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+      supports_function_calling: true
+
+  - model_name: embed
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: os.environ/OLLAMA_API_BASE
+    model_info:
+      mode: embedding
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+
+  # ─────────────────────────── CLOUD TIER ──────────────────────────────────
+  # Prices below are first-party Anthropic API rates and drive the proxy's
+  # spend tracking. Keep them in sync if Anthropic changes pricing.
+  - model_name: bulk-cloud
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 120
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.000001      # $1.00 / Mtok
+      output_cost_per_token: 0.000005     # $5.00 / Mtok
+      max_input_tokens: 200000
+      max_output_tokens: 64000
+      supports_function_calling: true
+      supports_vision: true
+      supports_prompt_caching: true
+
+  - model_name: balanced
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 180
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.000002      # $2.00 / Mtok
+      output_cost_per_token: 0.00001      # $10.00 / Mtok
+      max_input_tokens: 1000000
+      max_output_tokens: 128000
+      supports_function_calling: true
+      supports_vision: true
+      supports_prompt_caching: true
+
+  - model_name: frontier
+    litellm_params:
+      model: anthropic/claude-opus-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 600                        # deep reasoning turns run long
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.000005      # $5.00 / Mtok
+      output_cost_per_token: 0.000025     # $25.00 / Mtok
+      max_input_tokens: 1000000
+      max_output_tokens: 128000
+      supports_function_calling: true
+      supports_vision: true
+      supports_prompt_caching: true
+
+  # ──────────────── VENDOR PASSTHROUGH (compatibility) ─────────────────────
+  # Some tools hardcode a real model id. Expose the real names too so they
+  # work unmodified — and still land in your spend ledger.
+  - model_name: claude-opus-5
+    litellm_params:
+      model: anthropic/claude-opus-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 600
+    model_info: {mode: chat, input_cost_per_token: 0.000005, output_cost_per_token: 0.000025, max_input_tokens: 1000000, max_output_tokens: 128000}
+
+  - model_name: claude-sonnet-5
+    litellm_params:
+      model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 180
+    model_info: {mode: chat, input_cost_per_token: 0.000002, output_cost_per_token: 0.00001, max_input_tokens: 1000000, max_output_tokens: 128000}
+
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+      timeout: 120
+    model_info: {mode: chat, input_cost_per_token: 0.000001, output_cost_per_token: 0.000005, max_input_tokens: 200000, max_output_tokens: 64000}
+
+
+# ═══════════════════════════════ ROUTING ═══════════════════════════════════
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  retry_after: 5
+  allowed_fails: 3            # failures before a deployment is cooled off
+  cooldown_time: 60           # seconds in the penalty box
+
+  # If the local box is busy, OOM, or the model isn't pulled, routine work
+  # transparently goes to the cheapest cloud model instead of erroring.
+  # This is what makes "local-first" safe to depend on in real workflows.
+  fallbacks:
+    - routine:       [bulk-cloud]
+    - routine-code:  [balanced]
+    - bulk-cloud:    [balanced]
+    - balanced:      [frontier]
+    - frontier:      [balanced]
+
+  # Prompt too long for the 32k local window? Send it somewhere with 1M.
+  context_window_fallbacks:
+    - routine:       [balanced]
+    - routine-code:  [balanced]
+    - bulk-cloud:    [balanced]
+
+
+# ═══════════════════════════ PROXY BEHAVIOUR ═══════════════════════════════
+litellm_settings:
+  # Local models reject Anthropic/OpenAI-specific params (thinking, effort,
+  # cache_control...). Drop them per-model instead of 400-ing the caller —
+  # the same client code then works against every tier.
+  drop_params: true
+
+  # Never let a stuck upstream hang a caller forever.
+  request_timeout: 600
+  set_verbose: false
+  json_logs: false
+
+  # Retry-friendly error surface for clients
+  num_retries: 2
+
+  # ── Response caching (off by default) ──────────────────────────────────
+  # Turn on to stop paying twice for identical prompts (evals, CI, retries).
+  # Uncomment, then restart. Uses in-process memory; swap to redis for
+  # multi-worker or multi-machine deployments.
+  # cache: true
+  # cache_params:
+  #   type: local
+  #   ttl: 600
+  #   supported_call_types: ["acompletion", "completion", "aembedding", "embedding"]
+
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+
+  # Lets you add models / keys / budgets from the web UI at /ui and have
+  # them persist, without editing this file.
+  store_model_in_db: true
+
+  # Health checks: ON DEMAND ONLY (GET /health, or scripts/health.sh).
+  #
+  # Deliberately NOT background_health_checks. LiteLLM's background checker
+  # sends a real, billable completion to every deployment on every interval —
+  # with 6 cloud deployments at 300s that is ~1,700 paid Anthropic calls a day
+  # (~$5-8/month) purely to observe that nothing is wrong. Local models are
+  # free to poll, cloud ones are not, and the interval can't be set per-model.
+  background_health_checks: false
