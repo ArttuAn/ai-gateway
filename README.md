@@ -352,13 +352,15 @@ cycle.
 
 ### What budgets actually enforce
 
-Measured, because "budgeted" is worth checking rather than assuming: a key
-over its budget is **blocked on paid models** (verified: request 2 of 3
-returned "Budget has been exceeded") but **free local models still work**. That
-is sensible — a zero-cost request has nothing to cap — but it means the $0.01
-budget on `sandbox-local` is not what protects you there. The **model
-allowlist** is. The budget starts mattering the moment a key can reach a paid
-model.
+A key over its budget is **blocked on paid models** (verified: request 2 of 3
+returned "Budget has been exceeded") but **free local models still work**.
+
+This is documented, intended LiteLLM behaviour, not a bug — the docs state
+"budget checks are skipped entirely for zero-cost models", specifically so a
+budget-exhausted key can still fall back to self-hosted models. Worth knowing
+anyway, because it means the $0.01 budget on `sandbox-local` is not what
+protects you there. The **model allowlist** is. The budget starts mattering the
+moment a key can reach a paid model.
 
 ## Production hardening
 
