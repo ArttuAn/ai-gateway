@@ -245,6 +245,60 @@ Routing is configured in `config/config.yaml`:
 - **Retries and cooldowns** — 2 retries, then a failing deployment sits out
   for 60s.
 
+## Production hardening
+
+Applied from LiteLLM's own production checklist and current gateway practice:
+
+| Practice | Setting | Why |
+|---|---|---|
+| Hash-pinned dependencies | `requirements.txt` (2,400+ hashes) | LiteLLM had a real PyPI compromise (backdoored 1.82.7/1.82.8, March 2026). `--require-hashes` makes a swapped artifact fail closed |
+| No implicit dotenv loading | `LITELLM_MODE=PRODUCTION` | Stops LiteLLM auto-loading credentials from any `.env` it finds |
+| Structured logs | `json_logs: true`, `LITELLM_LOG=ERROR` | Greppable and shippable; no debug noise |
+| Prompt content never persisted | `turn_off_message_logging: true`, `redact_messages_in_exceptions: true` | The ledger records tokens and dollars, not what you asked. Verified with a canary phrase: 0 rows |
+| Batched spend writes | `proxy_batch_write_at: 60` | Per-request DB writes become a hot spot |
+| Bounded DB connections | `database_connection_pool_limit: 10` | The proxy can't exhaust Postgres |
+| Errors out of the ledger | `disable_error_logs: True` | A provider outage would otherwise bloat the spend table |
+| Bounded request timeout | `request_timeout: 600` | LiteLLM's default is 6000s, which holds connections through a dead upstream |
+| Metrics | `callbacks: ["prometheus"]` | `/metrics` with per-key and per-model spend, latency and failure counters |
+| Backups | `make backup` | Virtual-key secrets are shown once; losing Postgres invalidates every issued key |
+
+`make metrics` prints a snapshot; point a real Prometheus at
+`http://127.0.0.1:4000/metrics` for history. `make backup` keeps the 14 most
+recent dumps in `~/.local/share/ai-gateway-backups`.
+
+### Evidence-based routing
+
+```bash
+make eval                       # every tier against evals/tasks.jsonl
+make eval ARGS="--repeat 3"     # average over runs
+```
+
+The practice worth copying from teams doing this well is not "use a clever
+router" — it's **measure before you route**. `evals/tasks.jsonl` is a golden
+set of the work you'd actually send to a cheap tier (classification,
+extraction, commit messages, ticket routing, summarisation, small SQL, strict
+formatting), each with a deterministic check. The harness reports pass rate,
+median latency and tokens per tier, plus a per-task matrix showing exactly
+which task types the local model already handles.
+
+Route the rows where the cheap tier passes; send the rest to cloud. Re-run it
+whenever you change a model, a quantisation or a prompt — that's the whole
+point of having it.
+
+### Deliberately not done
+
+- **Semantic / response caching** — configured but off. Agentic traffic rarely
+  repeats prompts verbatim, so the hit rate is low and stale answers are a real
+  risk. Turn it on for evals, CI and batch work, where prompts do repeat.
+- **PII redaction / prompt-injection guardrails** (e.g. Presidio via LiteLLM
+  guardrails) — worth it once untrusted input reaches the gateway. Standard
+  advice is to run every guardrail in *warn* mode for a week and review the
+  false positives before enforcing.
+- **Prompt caching** is client-driven (`cache_control`), and the clients that
+  matter here (Claude Code, Cline) already do it. It cuts cached input cost by
+  up to 90% on Anthropic, so it's the biggest single lever if you write your
+  own high-volume client.
+
 ## Cost control
 
 ```bash
@@ -293,6 +347,11 @@ scripts/env.sh          point your shell's tools at the gateway
 scripts/setup-clients.sh    configure Cline + aider
 scripts/webui.sh        Open WebUI lifecycle (up|down|logs|destroy)
 scripts/gw-aider        aider, pre-wired to the gateway
+scripts/eval-tiers.py   measure tiers against the golden set
+scripts/metrics.sh      Prometheus snapshot
+scripts/backup.sh       Postgres backup + retention
+evals/tasks.jsonl       golden task set
+requirements.in/.txt    hash-pinned dependency lockfile
 scripts/launch.sh       one-click: start everything + open interfaces
 scripts/spend-window.sh spend report in a terminal window
 assets/ai-gateway.svg   launcher icon

@@ -200,13 +200,26 @@ litellm_settings:
   # the same client code then works against every tier.
   drop_params: true
 
-  # Never let a stuck upstream hang a caller forever.
+  # Never let a stuck upstream hang a caller forever. LiteLLM's default is
+  # 6000s, which holds connections open through a dead upstream.
   request_timeout: 600
-  set_verbose: false
-  json_logs: false
-
-  # Retry-friendly error surface for clients
   num_retries: 2
+
+  # ── Production logging (LiteLLM prod checklist) ─────────────────────────
+  set_verbose: false
+  json_logs: true              # structured logs; greppable and shippable
+
+  # ── Privacy: do not persist prompt/response content ─────────────────────
+  # The spend ledger records tokens and dollars, not what you asked. Message
+  # bodies in a database are a liability with no operational payoff here, and
+  # exception paths are the usual place prompts leak into logs.
+  turn_off_message_logging: true
+  redact_messages_in_exceptions: true
+
+  # ── Metrics ────────────────────────────────────────────────────────────
+  # Exposes Prometheus metrics at GET /metrics (spend, latency, failures,
+  # per-key and per-model counters). Scrape it, or use scripts/metrics.sh.
+  callbacks: ["prometheus"]
 
   # ── Response caching (off by default) ──────────────────────────────────
   # Turn on to stop paying twice for identical prompts (evals, CI, retries).
@@ -226,6 +239,18 @@ general_settings:
   # Lets you add models / keys / budgets from the web UI at /ui and have
   # them persist, without editing this file.
   store_model_in_db: true
+
+  # ── Database hygiene (LiteLLM prod checklist) ──────────────────────────
+  # Flush spend to Postgres on a timer rather than on every request; per-call
+  # writes turn the ledger into a hot spot as traffic grows.
+  proxy_batch_write_at: 60
+
+  # Cap connections per worker so the proxy can never exhaust Postgres.
+  database_connection_pool_limit: 10
+
+  # Keep LLM exception bodies out of the spend table — under a provider
+  # outage they bloat it fast, and the useful copy is already in the log.
+  disable_error_logs: True
 
   # Health checks: ON DEMAND ONLY (GET /health, or scripts/health.sh).
   #

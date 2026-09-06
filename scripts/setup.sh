@@ -3,9 +3,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "[1/5] python env + litellm"
+echo "[1/5] python env + litellm (hash-pinned)"
 [ -d .venv ] || uv venv --python 3.12 .venv
-VIRTUAL_ENV="$PWD/.venv" uv pip install -q 'litellm[proxy]' prisma
+# requirements.txt is a fully hash-pinned lockfile. LiteLLM had a real PyPI
+# supply-chain compromise in March 2026 (backdoored 1.82.7/1.82.8), so an
+# unpinned `pip install litellm` is a live risk, not a hypothetical one.
+# Regenerate deliberately with:  uv pip compile requirements.in --generate-hashes -o requirements.txt
+VIRTUAL_ENV="$PWD/.venv" uv pip install -q --require-hashes -r requirements.txt
 
 echo "[2/5] prisma client"
 set -a; source .env; set +a

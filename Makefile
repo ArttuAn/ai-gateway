@@ -1,4 +1,4 @@
-.PHONY: setup up down restart keys spend health health-local logs ui test clean webui webui-down clients sandbox sandbox-build
+.PHONY: setup up down restart keys spend health health-local logs ui test clean webui webui-down clients sandbox sandbox-build eval metrics backup
 SHELL := /bin/bash
 
 setup:        ## one-time bootstrap (venv, prisma, postgres, schema, models)
@@ -26,6 +26,12 @@ sandbox:      ## run a sandboxed agent on LOCAL models: make sandbox P="do X"
 	@node sandbox/run.mjs "$(P)"
 sandbox-build: ## (re)build the sandbox container image
 	@npx @ai-hero/sandcastle docker build-image
+eval:         ## measure every tier against evals/tasks.jsonl
+	@.venv/bin/python scripts/eval-tiers.py $(ARGS)
+metrics:      ## Prometheus snapshot (spend, latency, failures)
+	@./scripts/metrics.sh
+backup:       ## dump Postgres (keys, budgets, spend ledger)
+	@./scripts/backup.sh
 logs:         ## tail gateway logs
 	@tail -f logs/gateway.log
 ui:           ## open the admin UI

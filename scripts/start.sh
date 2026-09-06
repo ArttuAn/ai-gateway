@@ -26,6 +26,13 @@ if [ -f run/gateway.pid ] && kill -0 "$(cat run/gateway.pid)" 2>/dev/null; then
   echo "gateway already running (pid $(cat run/gateway.pid))"; exit 0
 fi
 
+# --- production environment (LiteLLM prod checklist) ------------------------
+# PRODUCTION disables LiteLLM's own load_dotenv(), which would otherwise pull
+# credentials out of any .env it finds. We source .env deliberately above, so
+# nothing is lost — this only removes the implicit path.
+export LITELLM_MODE=PRODUCTION
+export LITELLM_LOG=${LITELLM_LOG:-ERROR}
+
 # --- launch ----------------------------------------------------------------
 nohup .venv/bin/litellm \
   --config config/config.yaml \

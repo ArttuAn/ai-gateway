@@ -1,0 +1,3 @@
+litellm[proxy]==1.100.0
+prisma==0.15.0
+prometheus-client
