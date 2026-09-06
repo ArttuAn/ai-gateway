@@ -61,12 +61,19 @@ status "Starting database…"
 status "Starting gateway…"
 ./scripts/gateway-ctl.sh start >>"$LOG" 2>&1 || die "The gateway did not come up. See logs/gateway.log"
 
-status "Starting chat UI…"
-./scripts/webui.sh up >>"$LOG" 2>&1 || die "Open WebUI did not come up. Try: docker logs open-webui"
+# Open WebUI is optional and not installed by default (it cost 8GB and went
+# unused). Only start it if its image is actually present.
+if docker image inspect ghcr.io/open-webui/open-webui:main >/dev/null 2>&1; then
+  status "Starting chat UI…"
+  ./scripts/webui.sh up >>"$LOG" 2>&1 || die "Open WebUI did not come up. Try: docker logs open-webui"
+  OPEN_CHAT_AVAILABLE=1
+else
+  OPEN_CHAT_AVAILABLE=0
+fi
 
 # ── open the interfaces ──────────────────────────────────────────────────────
 status "Opening interfaces…"
-[ "$OPEN_CHAT"  = 1 ] && xdg-open "http://127.0.0.1:${WEBUI_PORT:-3000}"      >>"$LOG" 2>&1 &
+[ "$OPEN_CHAT" = 1 ] && [ "$OPEN_CHAT_AVAILABLE" = 1 ] && xdg-open "http://127.0.0.1:${WEBUI_PORT:-3000}" >>"$LOG" 2>&1 &
 sleep 1
 [ "$OPEN_ADMIN" = 1 ] && xdg-open "http://$GATEWAY_HOST:$GATEWAY_PORT/ui"     >>"$LOG" 2>&1 &
 [ "$OPEN_EDITOR" = 1 ] && command -v code >/dev/null && code "$DIR"           >>"$LOG" 2>&1 &

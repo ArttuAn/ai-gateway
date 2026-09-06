@@ -49,7 +49,7 @@ gw watch                    # budget + health check (also runs every 15 min)
 Then the occasional ones:
 
 ```bash
-gw chat        # graphical chat UI          gw sandbox "task"  # agent in a container
+gw sandbox "task"  # agent in a container   gw chat  # optional chat UI (not installed)
 gw code        # VS Code + Cline            gw eval            # tier quality
 gw up / down   # lifecycle                  gw eval-routing    # routing accuracy
 gw backup      # dump keys + ledger
@@ -317,7 +317,7 @@ The gateway is only useful through something. What works, and what doesn't:
 | **Cline** (VS Code) | configured | The graphical/agentic one. Extension host runs locally, so `127.0.0.1` resolves correctly |
 | **Cline** (CLI) | configured | `cline "..."` — verified through the gateway |
 | **aider** | configured | `scripts/gw-aider`; `AIDER_MODEL=openai/frontier scripts/gw-aider` to switch tier |
-| **Open WebUI** | running on :3000 | Graphical chat, `chat-ui` key, local-first |
+| **Open WebUI** | not installed | Optional graphical chat. Removed — 8.3 GB for an image that recorded 0 chats. `./scripts/webui.sh up` reinstalls (7 GB download) |
 | **Claude Code** | works, but read below | `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` |
 | **herdr** | already installed | Terminal workspace manager — the Linux answer to cmux |
 | **Cursor** | ✗ cannot work | See below |

@@ -43,8 +43,10 @@ status() {
   if up_q; then grn "up"; else red "DOWN"; ok=1; fi
   printf '   %s  ' "$(bold local)"
   if curl -sf -m 2 "${OLLAMA_API_BASE:-http://127.0.0.1:11434}/api/tags" >/dev/null 2>&1; then grn "up"; else red "down"; fi
-  printf '   %s  ' "$(bold chat)"
-  if curl -sf -m 2 "http://127.0.0.1:3000/health" >/dev/null 2>&1; then grn ":3000"; else dim "stopped"; fi
+  if docker image inspect ghcr.io/open-webui/open-webui:main >/dev/null 2>&1; then
+    printf '   %s  ' "$(bold chat)"
+    if curl -sf -m 2 "http://127.0.0.1:3000/health" >/dev/null 2>&1; then grn ":3000"; else dim "stopped"; fi
+  fi
   echo; echo
   if up_q; then
     local spend
@@ -148,7 +150,17 @@ case "${1:-status}" in
   dash-kill)  tmux kill-session -t ai-gateway 2>/dev/null && echo "dashboard closed" || echo "not running" ;;
   feed)       exec ./scripts/feed.sh ;;
   ask)        shift; ask "$@" ;;
-  chat)       ./scripts/webui.sh up >/dev/null 2>&1 || true; xdg-open http://127.0.0.1:3000 >/dev/null 2>&1 & echo "chat → http://127.0.0.1:3000" ;;
+  chat)
+    if docker image inspect ghcr.io/open-webui/open-webui:main >/dev/null 2>&1; then
+      ./scripts/webui.sh up >/dev/null 2>&1 || true
+      xdg-open http://127.0.0.1:3000 >/dev/null 2>&1 &
+      echo "chat → http://127.0.0.1:3000"
+    else
+      echo "Open WebUI is not installed (removed to save 8GB; it had 0 chats)."
+      echo "Installing re-downloads a $(bold '7GB') image. To do it anyway:"
+      echo "    ./scripts/webui.sh up"
+      echo "Otherwise just use: $(bold 'gw ask') \"your question\""
+    fi ;;
   code)       code "$ROOT" >/dev/null 2>&1 & echo "opening VS Code + Cline" ;;
   ui)         xdg-open "$GW/ui" >/dev/null 2>&1 & echo "admin → $GW/ui" ;;
   models)     models ;;
