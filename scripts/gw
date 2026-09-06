@@ -31,6 +31,7 @@ $(bold "gw") — AI gateway ($(dim "$GW"))
   $(bold "gw eval")                re-measure tier quality
   $(bold "gw eval-routing")        re-measure routing accuracy
   $(bold "gw doctor")              full diagnostic
+  $(bold "gw errors")              recent errors, explained $(dim "(copy-friendly)")
   $(bold "gw up|down|restart")     lifecycle
   $(bold "gw logs|backup|keys|ui") the rest
 EOF
@@ -158,6 +159,7 @@ case "${1:-status}" in
   watch)      ./scripts/watch.sh ;;
   sandbox)    shift; node sandbox/run.mjs "$@" ;;
   doctor)     doctor ;;
+  errors)     shift; exec ./scripts/errors.sh "$@" ;;
   up)         ./scripts/db.sh up && ./scripts/redis.sh up && ./scripts/gateway-ctl.sh start ;;
   down)       ./scripts/gateway-ctl.sh stop ;;
   restart)    ./scripts/gateway-ctl.sh restart ;;

@@ -93,6 +93,36 @@ which is the production setting, not lag in the feed. `direct` means a tier was
 called by name rather than through `auto` (the router's own classifier call
 shows up this way too).
 
+### Reading the log pane
+
+Errors in that pane are almost always benign — LiteLLM is noisy at startup. The
+pane filters known-benign patterns so a real problem stands out; set
+`GW_LOG_VERBOSE=1` to see everything.
+
+**To read or copy an error, don't fight tmux — use:**
+
+```bash
+gw errors          # deduped, classified, with an explanation for each
+gw errors --raw    # full text, for pasting into an issue
+```
+
+It prints to stdout in your normal shell, so selection and copy work as usual.
+Inside the tmux panes, `mouse on` (from your `~/.tmux.conf`) captures drag for
+tmux's own copy-mode — hold **Shift while dragging** for your terminal's native
+selection instead.
+
+What `gw errors` currently classifies as benign, and why:
+
+| Pattern | Why it is not a problem |
+|---|---|
+| `_Prisma__engine`, `prisma-query-engine … exited` | Restart noise. The query engine dies with the proxy and reconnects on backoff — timestamps line up with the restart, and the DB is fine afterwards |
+| `Could not import litellm.integrations.weave` | Optional integration, not installed, nothing here uses it |
+| `register_model … custom pricing` | Expected: local models are declared at $0, which isn't in LiteLLM's cost map |
+| `key not allowed to access model` | A guardrail firing correctly |
+| `Budget has been exceeded` | A guardrail firing correctly |
+
+Anything not on that list is printed in red as worth a look.
+
 Not cmux — that is macOS-only (Linux is waitlist). This is plain tmux, and it
 uses pane **IDs** rather than indices so it works regardless of your
 `pane-base-index`.

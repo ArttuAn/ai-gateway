@@ -13,10 +13,16 @@ tail -n 300 -F logs/gateway.log 2>/dev/null | while IFS= read -r line; do
           | "\($t) \($l) \($m)"' <<<"$line" 2>/dev/null) || out="$line" ;;
     *)   out="$line" ;;
   esac
-  # drop health-check and import noise; keep anything that matters
-  case "$out" in
-    *liveliness*|*/metrics*|*opentelemetry*|*weave*|*"Could not import"*) continue ;;
-  esac
+  # Hide known-benign noise so a real problem is visible when it appears.
+  # GW_LOG_VERBOSE=1 shows everything. `gw errors` explains each pattern.
+  if [ "${GW_LOG_VERBOSE:-0}" != "1" ]; then
+    case "$out" in
+      *liveliness*|*/metrics*|*opentelemetry*|*weave*|*"Could not import"*) continue ;;
+      *_Prisma__engine*|*prisma-query-engine*|*"Prisma DB reconnect"*|*"Backing off connect"*) continue ;;
+      *register_model*"custom pricing"*) continue ;;
+      *"key not allowed to access model"*|*"Budget has been exceeded"*) continue ;;
+    esac
+  fi
   case "$out" in
     *ERROR*) printf '\033[31m%s\033[0m\n' "${out:0:400}" ;;
     *WARNING*) printf '\033[33m%s\033[0m\n' "${out:0:400}" ;;
