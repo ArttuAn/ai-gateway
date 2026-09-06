@@ -98,6 +98,38 @@ model_list:
         # trivially simple prompt that the local model still gets wrong.
         # So format-strict requests skip the local tier regardless of score.
         keyword_tier_rules:
+          # ── PRIVACY FIRST ────────────────────────────────────────────────
+          # Complexity scoring actively works AGAINST privacy: sensitive text
+          # is detailed and specific, which scores as COMPLEX and therefore
+          # goes to the cloud. Measured before this rule existed — a prompt
+          # containing an SSN and one containing an acquisition target list
+          # both got sent to Anthropic, while "draft an email about our public
+          # blog post" stayed local. Exactly backwards.
+          #
+          # These markers force the request onto the local tier, where the
+          # data never leaves the machine. This is a safety net, NOT a
+          # guarantee: substring matching cannot recognise sensitive content
+          # it has no word for. When you KNOW something is confidential, use
+          # `gw ask -l` and don't rely on detection.
+          - keywords:
+              - "confidential"
+              - "internal only"
+              - "do not share"
+              - "under nda"
+              - "trade secret"
+              - "unreleased"
+              - "social security"
+              - "passport number"
+              - "credit card number"
+              - "bank account number"
+              - "iban"
+              - "medical record"
+              - "patient record"
+              - "private key"
+              - "-----BEGIN"
+              - "acquisition target"
+            tier: SIMPLE
+
           - keywords:
               - "reply with exactly"
               - "respond with only"

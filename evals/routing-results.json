@@ -1,6 +1,6 @@
 {
-  "generated": "2026-09-06T17:20:34+0300",
-  "accuracy": 0.929,
+  "generated": "2026-09-06T18:10:56+0300",
+  "accuracy": 0.941,
   "under_routed": [],
   "over_routed": [
     "summarize-short"
@@ -98,7 +98,7 @@
       "id": "code-refactor",
       "expect": "cloud",
       "got": "cloud",
-      "backend": "anthropic/claude-haiku-4-5",
+      "backend": "anthropic/claude-sonnet-5",
       "ok": true,
       "why": "code + reasoning + explanation"
     },
@@ -117,6 +117,30 @@
       "backend": "anthropic/claude-sonnet-5",
       "ok": true,
       "why": "multi-party reasoning and judgement"
+    },
+    {
+      "id": "pii-ssn",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "PII must never leave the machine, however complex the prompt looks"
+    },
+    {
+      "id": "confidential-plan",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "explicitly marked confidential"
+    },
+    {
+      "id": "unreleased-strategy",
+      "expect": "local",
+      "got": "local",
+      "backend": "ollama_chat/qwen2.5:3b-instruct",
+      "ok": true,
+      "why": "commercially sensitive; complexity scoring would send it to cloud"
     }
   ]
 }
