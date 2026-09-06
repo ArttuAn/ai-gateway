@@ -50,6 +50,60 @@ model_list:
       max_output_tokens: 8192
       supports_function_calling: true
 
+  # ── AUTOMATIC ROUTING ────────────────────────────────────────────────────
+  # `auto` decides local-vs-cloud for you, instead of you naming a tier.
+  #
+  # How: a deterministic scorer (token count, code markers, reasoning markers,
+  # technical terms, multi-step patterns) runs on every request in well under a
+  # millisecond with zero API calls. Only the requests it cannot place cheaply
+  # go to an LLM classifier — and that classifier is the LOCAL model, so the
+  # routing decision itself is free.
+  #
+  # This is the FrugalGPT/cascade pattern: cheapest capable tier first,
+  # escalate on evidence rather than on guesswork.
+  - model_name: auto
+    litellm_params:
+      model: auto_router/complexity_router
+      complexity_router_config:
+        # Heuristics first; ask the local model only about the ambiguous ones.
+        classifier_type: heuristic_first
+        heuristic_first_max_tier: SIMPLE
+        classifier_llm_config:
+          model: routine
+
+        tier_labels:
+          SIMPLE: Local
+          MEDIUM: CheapCloud
+          COMPLEX: Balanced
+          REASONING: Frontier
+
+        tiers:
+          SIMPLE: routine        # free, on this laptop
+          MEDIUM: bulk-cloud     # haiku
+          COMPLEX: balanced      # sonnet
+          REASONING: frontier    # opus
+
+        # Deterministic overrides encoding what `gw eval` actually measured:
+        # the local 3B handles semantic work (sentiment, extraction,
+        # summarising, SQL, regex) but fails strict output contracts —
+        # commit-msg, tag-support and instruction-follow all failed. Complexity
+        # scoring cannot see that, because "reply with exactly one word" is a
+        # trivially simple prompt that the local model still gets wrong.
+        # So format-strict requests skip the local tier regardless of score.
+        keyword_tier_rules:
+          - keywords:
+              - "reply with exactly"
+              - "respond with only"
+              - "answer with only"
+              - "one word only"
+              - "exactly one word"
+              - "json only"
+              - "no prose"
+              - "no explanation"
+              - "no code fences"
+              - "conventional commit"
+            tier: MEDIUM
+
   # ── SEALED LOCAL TIERS ───────────────────────────────────────────────────
   # Identical backends to routine/routine-code, but deliberately absent from
   # EVERY fallback list below. That is the whole point.

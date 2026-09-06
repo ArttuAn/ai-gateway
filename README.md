@@ -10,8 +10,8 @@ Everything is `gw`. You don't need the rest of this file to use it.
 
 ```bash
 gw                          # is everything up? what have I spent?
-gw ask "how do I ..."       # quick question        (cloud, fast, ~$0.0001)
-gw ask -l "summarise this"  # same, on your laptop  (free, private, slower)
+gw ask "how do I ..."       # routed automatically — local or cloud, per request
+gw ask -l "summarise this"  # force local (free, private)   -c forces cloud
 gw models                   # which tier to use, with measured evidence
 gw spend                    # where the money went
 gw doctor                   # 11-point diagnostic incl. security checks
@@ -30,6 +30,65 @@ things; `gw help` is the short list worth remembering.
 
 For software, the interface is a single endpoint — `http://127.0.0.1:4000` —
 speaking OpenAI *and* Anthropic formats with one key. See **Using it** below.
+
+## Automatic routing (`auto`)
+
+You don't have to choose a tier. Ask for `auto` — the default for `gw ask` —
+and the gateway decides per request.
+
+```
+"hi"                                  → SIMPLE     → local        $0
+"what is the capital of Finland"      → SIMPLE     → local        $0
+"Classify sentiment. Reply with
+ exactly one word: ..."               → MEDIUM     → haiku        $0.000049
+"Write a Python function ... and
+ explain the complexity step by step" → COMPLEX    → sonnet       $0.004
+```
+
+**How it decides**, cheapest mechanism first:
+
+1. **Deterministic keyword rules** — an override for cases we *measured* going
+   wrong (below). Zero cost.
+2. **A rule-based complexity scorer** — token count, code markers, reasoning
+   markers, technical terms, multi-step patterns. Sub-millisecond, no API call.
+   Most traffic never gets further than this.
+3. **The local model as classifier** — only for requests the scorer can't place
+   (`classifier_type: heuristic_first`). The routing decision itself is free,
+   because the thing making it runs on your laptop.
+
+This is the FrugalGPT/cascade pattern: start at the cheapest capable tier and
+escalate on evidence. Every decision is recorded — `routing_decision.tier` and
+`routing_decision.cause` in the spend ledger — so you can audit why any request
+cost what it did:
+
+```sql
+select model, metadata->'routing_decision'->>'tier',
+              metadata->'routing_decision'->>'cause'
+from "LiteLLM_SpendLogs" order by "startTime" desc;
+```
+
+Observed causes: `heuristic_first_short_circuit` (free, no classifier call),
+`llm_classifier` (local model decided), `literal_keyword_match` (override).
+
+### Why there are keyword overrides
+
+Complexity scoring alone would misroute this setup, and the eval proved it.
+*"Reply with exactly one word"* is a trivially **simple** prompt — and the local
+3B **fails** it, along with `commit-msg` and `tag-support`. Strictness of the
+output contract is invisible to a complexity score.
+
+So format-strict phrasings (`reply with exactly`, `json only`, `no prose`,
+`conventional commit`, …) skip the local tier regardless of score. That list is
+not guesswork; it comes from the tasks `gw eval` measured local failing. Re-run
+`gw eval` after changing models and update the list to match.
+
+### Tuning
+
+`config/config.yaml` → `complexity_router_config`. `tier_boundaries` moves the
+score cutoffs, `heuristic_first_max_tier` trades savings against accuracy (a
+lower threshold sends more requests to the classifier), and `tiers` maps each
+rung to a model. The `REASONING` rung points at `frontier` and only fires on
+genuinely heavy analysis — raise `complex_reasoning` if you want it more often.
 
 ## Tiers
 

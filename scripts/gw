@@ -21,7 +21,7 @@ cat <<EOF
 $(bold "gw") — AI gateway ($(dim "$GW"))
 
   $(bold "gw")                     status at a glance
-  $(bold "gw ask") [-l] "..."      ask a question    $(dim "-l = local/free")
+  $(bold "gw ask") "..."           ask — routed automatically $(dim "(-l force local, -c force cloud)")
   $(bold "gw chat")                open the chat UI
   $(bold "gw code")                open VS Code + Cline
   $(bold "gw sandbox") "task"      run an agent in a throwaway container
@@ -54,10 +54,11 @@ status() {
 }
 
 ask() {
-  local tier="${ASK_TIER:-bulk-cloud}"
+  local tier="${ASK_TIER:-auto}"
   while [ $# -gt 0 ]; do
     case "$1" in
       -l|--local) tier="routine"; shift;;
+      -c|--cloud) tier="balanced"; shift;;
       -t|--tier)  tier="$2"; shift 2;;
       *) break;;
     esac
@@ -90,6 +91,7 @@ models() {
     fi
     printf '%-14s %-26s %-12s %s\n' "$1" "$2" "$3" "$pass"
   }
+  printf '%-14s %-26s %-12s %s\n' auto "picks for you" "varies" "$(dim "heuristics + local classifier")"
   show routine      "this laptop (3B)"      "free"
   show routine-code "this laptop (14B)"     "free"
   show bulk-cloud   "Anthropic haiku-4.5"   "\$1/\$5"
@@ -103,6 +105,7 @@ models() {
     failed=$(jq -r '.tiers.routine.failed // [] | join(", ")' "$r" 2>/dev/null)
     [ -n "$failed" ] && echo "  local still fails: $(red "$failed")"
     echo "  $(dim "rule of thumb: local for bulk + private work, cloud when the output format must be exact")"
+    echo "  $(dim "or just use 'auto' (the default for gw ask) and let it decide per request")"
   else
     echo "$(dim "no measurements yet — run: gw eval")"
   fi
