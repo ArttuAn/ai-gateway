@@ -50,6 +50,42 @@ model_list:
       max_output_tokens: 8192
       supports_function_calling: true
 
+  # ── SEALED LOCAL TIERS ───────────────────────────────────────────────────
+  # Identical backends to routine/routine-code, but deliberately absent from
+  # EVERY fallback list below. That is the whole point.
+  #
+  # LiteLLM applies fallbacks AFTER the key's model allowlist check, so a key
+  # restricted to local models will still be escalated to a paid model by a
+  # fallback rule. Observed in the ledger: the sandbox-local key spent $0.17 on
+  # claude-sonnet-5 because Claude Code's 29k prompt overflowed the 32k local
+  # window and context_window_fallbacks re-routed it to `balanced`.
+  #
+  # Untrusted or unattended agents get these instead, so "cannot spend money"
+  # is a property of the routing table, not a promise.
+  - model_name: sealed-local
+    litellm_params:
+      model: ollama_chat/qwen2.5:3b-instruct
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 300
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+
+  - model_name: sealed-code
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:14b
+      api_base: os.environ/OLLAMA_API_BASE
+      timeout: 900
+    model_info:
+      mode: chat
+      input_cost_per_token: 0.0
+      output_cost_per_token: 0.0
+      max_input_tokens: 32768
+      max_output_tokens: 8192
+
   - model_name: embed
     litellm_params:
       model: ollama/nomic-embed-text

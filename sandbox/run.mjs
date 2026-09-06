@@ -14,7 +14,7 @@
  *
  * Usage:
  *   node sandbox/run.mjs "add a --version flag to scripts/spend.sh"
- *   SANDBOX_MODEL=routine node sandbox/run.mjs "..."     # smaller/faster model
+ *   SANDBOX_MODEL=sealed-local node sandbox/run.mjs "..."  # smaller/faster model
  */
 import { run, claudeCode } from "@ai-hero/sandcastle";
 import { docker } from "@ai-hero/sandcastle/sandboxes/docker";
@@ -89,7 +89,7 @@ if (backend === "subscription") {
   agentEnv = { CLAUDE_CODE_OAUTH_TOKEN: oauth };
   blurb = "your claude.ai subscription — flat rate, no per-token billing";
 } else {
-  model = process.env.SANDBOX_MODEL ?? "routine-code";
+  model = process.env.SANDBOX_MODEL ?? "sealed-code";
   agentEnv = {
     // Point Claude Code at the gateway instead of Anthropic.
     ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`,
@@ -98,10 +98,15 @@ if (backend === "subscription") {
     // The local models are 32k — without this it overflows them, and the
     // oversized request gets bounced to a cloud model this key cannot use.
     CLAUDE_CODE_MAX_CONTEXT_TOKENS: "32000",
+    // Claude Code 2.1.x hard-fails (exit 1) on model names it doesn't know —
+    // including while generating a session title, before your prompt even
+    // runs. Gateway tier names are by definition unknown to it, so this must
+    // be set or every local run dies at startup.
+    CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
     // Local models are slow on CPU; don't let Claude Code give up early.
     BASH_DEFAULT_TIMEOUT_MS: "600000",
   };
-  blurb = "sandbox-local key — local models only, $0.01 cap";
+  blurb = "sandbox-local key — sealed local tiers, no fallback to paid models";
 }
 
 console.log(`agent  : claude-code on "${model}" (${backend})`);

@@ -177,8 +177,20 @@ Two independent safety nets:
   against a git worktree and commits to a temp branch. Wreck the tree and the
   container is deleted; you discard the branch.
 - **The gateway contains the bill.** The sandbox gets the `sandbox-local`
-  virtual key — allowlisted to local models with a $0.01 cap — so a runaway
-  loop cannot reach Opus or spend real money.
+  virtual key, allowlisted to the **sealed** local tiers (`sealed-local`,
+  `sealed-code`) — which appear in no fallback rule, so nothing can escalate
+  the run onto a paid model.
+
+> **Why sealed tiers exist.** LiteLLM applies fallbacks *after* the key's model
+> allowlist check. A key restricted to local models will still be escalated by
+> a fallback rule. This was not theoretical: the first sandbox run spent
+> **$0.17 on claude-sonnet-5** because Claude Code's 29k prompt overflowed the
+> 32k local window and `context_window_fallbacks` re-routed it to `balanced` —
+> past an allowlist that named only local models. `sealed-*` tiers are
+> identical backends deliberately excluded from every fallback list, so
+> "cannot spend money" is a property of the routing table rather than a
+> promise. Verified: with Ollama stopped, `sealed-local` returns a connection
+> error, while `routine` still fails over to `bulk-cloud` as designed.
 
 Two backends:
 
@@ -215,7 +227,7 @@ scoped, individually revocable key:
 | `app-backend`     | no `frontier` | $50/30d | user-facing product traffic |
 | `batch-jobs`      | local + `bulk-cloud` | $10/30d | cron, backfills, CI |
 | `chat-ui`         | local + haiku/sonnet | $20/30d | Open WebUI; no frontier — a chat box is where an idle $25/Mtok model drains a budget |
-| `sandbox-local`   | local only | $0.01/30d | experiments, new teammates — cannot spend |
+| `sandbox-local`   | sealed local tiers | $0.01/30d | agents and experiments — no fallback can escalate it to a paid model |
 
 Keys are in `keys.env` (chmod 600, gitignored). Re-run `make keys` any time;
 it skips aliases that already exist. Add, revoke and re-budget from the UI at

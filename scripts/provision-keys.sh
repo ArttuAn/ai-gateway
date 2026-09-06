@@ -77,8 +77,8 @@ mk_key chat-ui \
 
 # Experiments / onboarding a new teammate: local only, cannot spend a cent.
 mk_key sandbox-local \
-  '["routine","routine-code","embed"]' \
-  0.01 30d 60 "local-only sandbox; cloud access denied by allowlist"
+  '["sealed-local","sealed-code","embed"]' \
+  0.01 30d 60 "sealed local sandbox; no fallback can escalate it to a paid model"
 
 echo
 echo "wrote $OUT (chmod 600)"
