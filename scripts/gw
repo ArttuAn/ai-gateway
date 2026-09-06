@@ -20,6 +20,7 @@ usage() {
 cat <<EOF
 $(bold "gw") — AI gateway ($(dim "$GW"))
 
+  $(bold "gw dash")                tmux control room $(dim "(start here)")
   $(bold "gw")                     status at a glance
   $(bold "gw ask") "..."           ask — routed automatically $(dim "(-l force local, -c force cloud)")
   $(bold "gw chat")                open the chat UI
@@ -142,6 +143,9 @@ doctor() {
 
 case "${1:-status}" in
   status|"")  status ;;
+  dash)       exec ./scripts/dash.sh ;;
+  dash-kill)  tmux kill-session -t ai-gateway 2>/dev/null && echo "dashboard closed" || echo "not running" ;;
+  feed)       exec ./scripts/feed.sh ;;
   ask)        shift; ask "$@" ;;
   chat)       ./scripts/webui.sh up >/dev/null 2>&1 || true; xdg-open http://127.0.0.1:3000 >/dev/null 2>&1 & echo "chat → http://127.0.0.1:3000" ;;
   code)       code "$ROOT" >/dev/null 2>&1 & echo "opening VS Code + Cline" ;;
