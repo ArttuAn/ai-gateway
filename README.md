@@ -1,25 +1,35 @@
 # AI Gateway
 
-One OpenAI-compatible endpoint in front of **local models on this machine** and
-**Claude frontier models in the cloud**. Applications ask for a *tier*
-(`routine`, `balanced`, `frontier`) instead of naming a vendor, so you can move
-work between local and cloud by editing one config file — no application
-changes, no redeploys.
+One endpoint on this machine that answers to **local models** and **Claude in
+the cloud**, so your apps ask for a *tier* (`routine`, `balanced`, `frontier`)
+and never name a vendor. Move work between local and cloud by editing one file.
 
-Built on [LiteLLM](https://github.com/BerriAI/litellm) + Ollama + Postgres.
+## Daily use — one command
 
+Everything is `gw`. You don't need the rest of this file to use it.
+
+```bash
+gw                          # is everything up? what have I spent?
+gw ask "how do I ..."       # quick question        (cloud, fast, ~$0.0001)
+gw ask -l "summarise this"  # same, on your laptop  (free, private, slower)
+gw models                   # which tier to use, with measured evidence
+gw spend                    # where the money went
+gw doctor                   # 11-point diagnostic incl. security checks
 ```
-   your apps / IDE / CLI / cron
-              │  one base_url, one virtual key
-              ▼
-   ┌──────────────────────────┐
-   │  gateway  :4000          │  routing · fallbacks · budgets
-   │  OpenAI + Anthropic API  │  spend ledger · virtual keys
-   └────────┬────────┬────────┘
-            │        │
-      Ollama :11434  └── Anthropic API
-      (free, private)     (frontier, metered)
+
+Then the occasional ones:
+
+```bash
+gw chat        # graphical chat UI          gw sandbox "task"  # agent in a container
+gw code        # VS Code + Cline            gw eval            # re-measure the tiers
+gw up / down   # lifecycle                  gw backup          # dump keys + ledger
 ```
+
+`gw` works from any directory. `make` targets still exist and do the same
+things; `gw help` is the short list worth remembering.
+
+For software, the interface is a single endpoint — `http://127.0.0.1:4000` —
+speaking OpenAI *and* Anthropic formats with one key. See **Using it** below.
 
 ## Tiers
 

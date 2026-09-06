@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+# gw — one command for the AI gateway.
+#
+# Everything else in scripts/ is plumbing this dispatches to. If you only ever
+# learn three of these, learn: gw, gw ask, gw spend.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+cd "$ROOT"
+set -a; source .env 2>/dev/null || true; source keys.env 2>/dev/null || true; set +a
+GW="http://${GATEWAY_HOST:-127.0.0.1}:${GATEWAY_PORT:-4000}"
+KEY="${DEV_WORKSTATION_KEY:-}"
+
+c()  { printf '\033[%sm%s\033[0m' "$1" "$2"; }
+dim(){ c '2' "$1"; }; bold(){ c '1' "$1"; }; grn(){ c '32' "$1"; }; red(){ c '31' "$1"; }
+
+up_q()   { curl -sf -m 2 "$GW/health/liveliness" >/dev/null 2>&1; }
+need_up(){ up_q || { echo "gateway is down — run: $(bold 'gw up')" >&2; exit 1; }; }
+
+usage() {
+cat <<EOF
+$(bold "gw") — AI gateway ($(dim "$GW"))
+
+  $(bold "gw")                     status at a glance
+  $(bold "gw ask") [-l] "..."      ask a question    $(dim "-l = local/free")
+  $(bold "gw chat")                open the chat UI
+  $(bold "gw code")                open VS Code + Cline
+  $(bold "gw sandbox") "task"      run an agent in a throwaway container
+  $(bold "gw models")              which tier to use, with measured evidence
+  $(bold "gw spend")               where the money went
+  $(bold "gw eval")                re-measure the tiers
+  $(bold "gw doctor")              full diagnostic
+  $(bold "gw up|down|restart")     lifecycle
+  $(bold "gw logs|backup|keys|ui") the rest
+EOF
+}
+
+status() {
+  local ok=0
+  printf '%s  ' "$(bold gateway)"
+  if up_q; then grn "up"; else red "DOWN"; ok=1; fi
+  printf '   %s  ' "$(bold local)"
+  if curl -sf -m 2 "${OLLAMA_API_BASE:-http://127.0.0.1:11434}/api/tags" >/dev/null 2>&1; then grn "up"; else red "down"; fi
+  printf '   %s  ' "$(bold chat)"
+  if curl -sf -m 2 "http://127.0.0.1:3000/health" >/dev/null 2>&1; then grn ":3000"; else dim "stopped"; fi
+  echo; echo
+  if up_q; then
+    local spend
+    spend=$(docker exec "${PG_CONTAINER:-ai-gateway-db}" psql -U litellm -d litellm -t -A -c \
+      "select coalesce(round(sum(spend)::numeric,4),0) from \"LiteLLM_SpendLogs\" where \"startTime\" > now() - interval '30 days';" 2>/dev/null || echo "?")
+    echo "  spend (30d): \$$spend"
+    echo "  $(dim "gw ask \"...\"  ·  gw models  ·  gw spend  ·  gw doctor")"
+  fi
+  return $ok
+}
+
+ask() {
+  local tier="${ASK_TIER:-bulk-cloud}"
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -l|--local) tier="routine"; shift;;
+      -t|--tier)  tier="$2"; shift 2;;
+      *) break;;
+    esac
+  done
+  local prompt="$*"
+  [ -n "$prompt" ] || { echo 'usage: gw ask [-l] [-t tier] "your question"' >&2; exit 2; }
+  need_up
+  printf '%s\n' "$(dim "· $tier")"
+  curl -sN "$GW/v1/chat/completions" \
+    -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+    -d "$(jq -nc --arg m "$tier" --arg p "$prompt" \
+        '{model:$m,messages:[{role:"user",content:$p}],max_tokens:2000,stream:true}')" \
+  | while IFS= read -r line; do
+      case "$line" in
+        "data: [DONE]") break;;
+        data:\ *) printf '%s' "$(jq -rj '.choices[0].delta.content // empty' <<<"${line#data: }" 2>/dev/null || true)";;
+      esac
+    done
+  echo
+}
+
+models() {
+  local r="evals/results.json"
+  printf '%-14s %-26s %-12s %s\n' TIER RUNS-ON COST/Mtok "MEASURED"
+  printf '%s\n' "────────────────────────────────────────────────────────────────────────"
+  show() { # tier runs-on cost
+    local pass="—"
+    if [ -f "$r" ]; then
+      pass=$(jq -r --arg t "$1" 'if .tiers[$t] then "\(.tiers[$t].pass_rate*100|floor)% pass, \(.tiers[$t].median_latency_s)s" else "—" end' "$r" 2>/dev/null)
+    fi
+    printf '%-14s %-26s %-12s %s\n' "$1" "$2" "$3" "$pass"
+  }
+  show routine      "this laptop (3B)"      "free"
+  show routine-code "this laptop (14B)"     "free"
+  show bulk-cloud   "Anthropic haiku-4.5"   "\$1/\$5"
+  show balanced     "Anthropic sonnet-5"    "\$2/\$10"
+  show frontier     "Anthropic opus-5"      "\$5/\$25"
+  show embed        "this laptop"           "free"
+  echo
+  if [ -f "$r" ]; then
+    echo "$(dim "measured $(jq -r .generated "$r") over $(jq -r .task_count "$r") tasks")"
+    local failed
+    failed=$(jq -r '.tiers.routine.failed // [] | join(", ")' "$r" 2>/dev/null)
+    [ -n "$failed" ] && echo "  local still fails: $(red "$failed")"
+    echo "  $(dim "rule of thumb: local for bulk + private work, cloud when the output format must be exact")"
+  else
+    echo "$(dim "no measurements yet — run: gw eval")"
+  fi
+}
+
+doctor() {
+  local fail=0
+  chk() { printf '  %-34s' "$1"; if eval "$2" >/dev/null 2>&1; then grn "ok"; echo; else red "FAIL"; echo; fail=1; fi; }
+  echo "$(bold "services")"
+  chk "gateway responding"        "curl -sf -m 3 $GW/health/liveliness"
+  chk "postgres"                  "docker exec ${PG_CONTAINER:-ai-gateway-db} pg_isready -U litellm -d litellm"
+  chk "ollama"                    "curl -sf -m 3 ${OLLAMA_API_BASE:-http://127.0.0.1:11434}/api/tags"
+  chk "systemd unit enabled"      "systemctl --user is-enabled ai-gateway.service"
+  echo "$(bold "config")"
+  chk "credential file present"   "test -r $HOME/.config/ai-gateway/secrets.env"
+  chk "virtual keys present"      "test -s keys.env"
+  chk "deps hash-pinned"          "grep -q sha256 requirements.txt"
+  chk "prompts not persisted"     "grep -q 'turn_off_message_logging: true' config/config.yaml"
+  echo "$(bold "routing (live requests)")"
+  for t in routine bulk-cloud; do
+    chk "tier: $t" "curl -sf -m 300 $GW/v1/chat/completions -H 'Authorization: Bearer $KEY' -H 'Content-Type: application/json' -d '{\"model\":\"$t\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}' | jq -e '.choices[0].message.content'"
+  done
+  chk "sandbox key cannot escalate" "! curl -sf -m 20 $GW/v1/chat/completions -H 'Authorization: Bearer ${SANDBOX_LOCAL_KEY:-x}' -H 'Content-Type: application/json' -d '{\"model\":\"frontier\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}],\"max_tokens\":5}' | jq -e '.choices[0].message.content'"
+  echo; [ $fail -eq 0 ] && grn "all good" || red "see failures above"; echo
+  return $fail
+}
+
+case "${1:-status}" in
+  status|"")  status ;;
+  ask)        shift; ask "$@" ;;
+  chat)       ./scripts/webui.sh up >/dev/null 2>&1 || true; xdg-open http://127.0.0.1:3000 >/dev/null 2>&1 & echo "chat → http://127.0.0.1:3000" ;;
+  code)       code "$ROOT" >/dev/null 2>&1 & echo "opening VS Code + Cline" ;;
+  ui)         xdg-open "$GW/ui" >/dev/null 2>&1 & echo "admin → $GW/ui" ;;
+  models)     models ;;
+  spend)      ./scripts/spend.sh ;;
+  keys)       ./scripts/provision-keys.sh ;;
+  eval)       shift; .venv/bin/python scripts/eval-tiers.py "$@" ;;
+  sandbox)    shift; node sandbox/run.mjs "$@" ;;
+  doctor)     doctor ;;
+  up)         ./scripts/db.sh up && ./scripts/gateway-ctl.sh start ;;
+  down)       ./scripts/gateway-ctl.sh stop ;;
+  restart)    ./scripts/gateway-ctl.sh restart ;;
+  logs)       tail -f logs/gateway.log ;;
+  backup)     ./scripts/backup.sh ;;
+  metrics)    ./scripts/metrics.sh ;;
+  test)       ./scripts/smoke-test.sh ;;
+  help|-h|--help) usage ;;
+  *) echo "unknown command: $1" >&2; echo; usage; exit 2 ;;
+esac

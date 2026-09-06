@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-echo "[1/5] python env + litellm (hash-pinned)"
+echo "[1/6] python env + litellm (hash-pinned)"
 [ -d .venv ] || uv venv --python 3.12 .venv
 # requirements.txt is a fully hash-pinned lockfile. LiteLLM had a real PyPI
 # supply-chain compromise in March 2026 (backdoored 1.82.7/1.82.8), so an
@@ -11,23 +11,31 @@ echo "[1/5] python env + litellm (hash-pinned)"
 # Regenerate deliberately with:  uv pip compile requirements.in --generate-hashes -o requirements.txt
 VIRTUAL_ENV="$PWD/.venv" uv pip install -q --require-hashes -r requirements.txt
 
-echo "[2/5] prisma client"
+echo "[2/6] prisma client"
 set -a; source .env; set +a
 export PATH="$PWD/.venv/bin:$PATH"
 SCHEMA=".venv/lib/python3.12/site-packages/litellm/proxy/schema.prisma"
 .venv/bin/prisma generate --schema="$SCHEMA" >/dev/null
 
-echo "[3/5] postgres"
+echo "[3/6] postgres"
 ./scripts/db.sh up
 
-echo "[4/5] database schema"
+echo "[4/6] database schema"
 .venv/bin/prisma db push --schema="$SCHEMA" --accept-data-loss --skip-generate >/dev/null
 echo "      schema in sync"
 
-echo "[5/5] local models"
+echo "[5/6] local models"
 for m in qwen2.5:3b-instruct nomic-embed-text; do
   ollama list 2>/dev/null | grep -q "^${m%%:*}" || ollama pull "$m"
 done
 
+echo "[6/6] gw command"
+mkdir -p "$HOME/.local/bin"
+ln -sf "$PWD/scripts/gw" "$HOME/.local/bin/gw"
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) echo "      gw installed" ;;
+  *) echo "      gw installed, but ~/.local/bin is not on PATH — add it to ~/.bashrc" ;;
+esac
+
 echo
-echo "done. next:  ./scripts/start.sh  &&  ./scripts/provision-keys.sh"
+echo "done. next:  gw up  &&  gw keys  &&  gw doctor"

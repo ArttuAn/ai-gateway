@@ -146,6 +146,25 @@ def main():
     print(f"\n{cheap} handles {len(safe)}/{len(tasks)}: {', '.join(safe) if safe else '(none)'}")
     print("Route those locally; send the rest to a cloud tier.")
 
+    # Persist the findings so routing guidance is data, not memory.
+    # `gw models` reads this back, which is the point of measuring at all.
+    out = ROOT / "evals" / "results.json"
+    out.write_text(json.dumps({
+        "generated": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "repeat": a.repeat,
+        "task_count": len(tasks),
+        "tiers": {
+            tier: {
+                "pass_rate": round(r["pass"], 3),
+                "median_latency_s": round(r["p50"], 2),
+                "tokens": r["tokens"],
+                "passed": [rows[0] for rows in r["rows"] if rows[2] == 1],
+                "failed": [rows[0] for rows in r["rows"] if rows[2] < 1],
+            } for tier, r in results.items()
+        },
+    }, indent=2) + "\n")
+    print(f"\nwrote {out.relative_to(ROOT)} (read back by `gw models`)")
+
 
 if __name__ == "__main__":
     main()
