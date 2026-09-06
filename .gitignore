@@ -3,3 +3,7 @@ logs/
 run/
 keys.env
 .env
+node_modules/
+.sandcastle/.env
+.sandcastle/logs/
+.sandcastle/worktrees/

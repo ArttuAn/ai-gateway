@@ -165,6 +165,45 @@ it gatewayed, use the passthrough names (`ANTHROPIC_MODEL=claude-sonnet-5`),
 not the tier aliases: Claude Code doesn't recognise `balanced` and will assume a
 200k context window.
 
+## Sandboxed agents (sandcastle)
+
+`make sandbox P="add a --json flag to scripts/spend.sh"` runs a coding agent
+inside a throwaway Docker container, on a temporary git branch, using
+[sandcastle](https://github.com/mattpocock/sandcastle).
+
+Two independent safety nets:
+
+- **Sandcastle contains the blast radius.** The agent works in a container
+  against a git worktree and commits to a temp branch. Wreck the tree and the
+  container is deleted; you discard the branch.
+- **The gateway contains the bill.** The sandbox gets the `sandbox-local`
+  virtual key — allowlisted to local models with a $0.01 cap — so a runaway
+  loop cannot reach Opus or spend real money.
+
+Two backends:
+
+```bash
+make sandbox P="..."                              # local models, free
+SANDBOX_BACKEND=subscription make sandbox P="..."  # your claude.ai plan, flat rate
+```
+
+`subscription` uses Claude Code's OAuth token, so the sandboxed agent runs on
+your Claude plan with **no per-token API billing**. Mint one on the host with
+`claude setup-token` and put it in `.sandcastle/.env` as
+`CLAUDE_CODE_OAUTH_TOKEN=...`.
+
+**`ANTHROPIC_API_KEY` is deliberately never injected into the sandbox.** Claude
+Code prefers it over the OAuth token, so a stray key silently converts a
+flat-rate subscription run into a metered API bill.
+
+Networking: the sandbox runs with `--network host`, which is required — the
+gateway listens on `127.0.0.1` and a bridged container cannot reach the host
+loopback (verified: HTTP 000 bridged vs HTTP 200 host). Filesystem isolation,
+the part protecting your repo, is unaffected.
+
+Expect local runs to be slow: `routine-code` is a 9 GB model on 8 CPU cores.
+`SANDBOX_MODEL=routine` is faster and dumber.
+
 ## Virtual keys
 
 Your real `ANTHROPIC_API_KEY` never leaves this machine. Each consumer gets a
@@ -245,6 +284,8 @@ scripts/gw-aider        aider, pre-wired to the gateway
 scripts/launch.sh       one-click: start everything + open interfaces
 scripts/spend-window.sh spend report in a terminal window
 assets/ai-gateway.svg   launcher icon
+sandbox/run.mjs         sandboxed agent runner (local | subscription)
+.sandcastle/            sandcastle scaffold + container image definition
 clients/                OpenAI SDK, Anthropic SDK, Node examples
 ```
 

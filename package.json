@@ -1,0 +1,15 @@
+{
+  "name": "ai-gateway",
+  "version": "1.0.0",
+  "description": "One OpenAI-compatible endpoint in front of **local models on this machine** and **Claude frontier models in the cloud**. Applications ask for a *tier* (`routine`, `balanced`, `frontier`) instead of naming a vendor, so you can move work between local and cloud by editing one config file — no application changes, no redeploys.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@ai-hero/sandcastle": "^0.12.0"
+  }
+}
