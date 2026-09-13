@@ -8,6 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-6a74ef.svg)](LICENSE)
 [![Built on LiteLLM](https://img.shields.io/badge/built%20on-LiteLLM-5b8def.svg)](https://github.com/BerriAI/litellm)
+[![Built on Sandcastle](https://img.shields.io/badge/built%20on-Sandcastle-8b5bef.svg)](https://github.com/mattpocock/sandcastle)
 [![Local models](https://img.shields.io/badge/local-Ollama-7b5bef.svg)](https://ollama.com)
 [![Routing accuracy](https://img.shields.io/badge/routing%20accuracy-93%25-brightgreen.svg)](#is-the-router-any-good)
 [![Platform: Linux](https://img.shields.io/badge/platform-Linux-lightgrey.svg)](#)
